@@ -14,59 +14,77 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-frontend:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest-l
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-  build-backend:
+  start-application:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest-m
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Build application
+        run: docker compose build
+      - name: Start application
+        run: docker compose up -d
 
-  test:
+  playwright-tests:
     if: github.event.pull_request.draft == false
+    needs: [start-application]
     strategy:
       fail-fast: false
       matrix:
         shardIndex: [1, 2, 3, 4]
         shardTotal: [4]
-    name: E2E Test ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    name: Playwright test (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-latest-m
-    needs: [build-frontend, build-backend]
     permissions:
       id-token: write
       contents: read
       actions: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
 
+      - name: Run Playwright tests
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+
+      - name: Upload blob report to GitHub Actions Artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: blob-report
+          retention-days: 1
+  merge-reports:
+    # Merge reports after playwright-tests, even if some shards have failed
+    if: ${{ !cancelled() }} && github.event.pull_request.draft == false
+    needs: [playwright-tests]
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=list,html --timeout=60000
-
-      - name: Upload Playwright Report
-        if: always()
-        uses: actions/upload-artifact@v3
+      - name: Download blob reports from GitHub Actions Artifacts
+        uses: actions/download-artifact@v5
         with:
-          name: playwright-report-${{ matrix.shardIndex }}
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge into HTML Report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report--attempt-${{ github.run_attempt }}
+          path: playwright-report
+          retention-days: 14
