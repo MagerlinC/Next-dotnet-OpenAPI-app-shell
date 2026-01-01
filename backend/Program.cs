@@ -8,13 +8,19 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+Console.WriteLine("Application Starting");
+Console.WriteLine($"Environment: {app.Environment.EnvironmentName}");
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+  app.MapOpenApi();
+}
+else
+{
+  app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

@@ -31,3 +31,4 @@
 /Users/mikkelagerlin/git/next-dotnet-app-shell/backend/obj/Debug/net10.0/backend.pdb
 /Users/mikkelagerlin/git/next-dotnet-app-shell/backend/obj/Debug/net10.0/backend.genruntimeconfig.cache
 /Users/mikkelagerlin/git/next-dotnet-app-shell/backend/obj/Debug/net10.0/ref/backend.dll
+/Users/mikkelagerlin/git/next-dotnet-app-shell/backend/obj/Debug/net10.0/backend.sourcelink.json

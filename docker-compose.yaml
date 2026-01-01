@@ -15,4 +15,4 @@ services:
     ports:
       - 5257:5257
     environment:
-      - ASPNETCORE_ENVIRONMENT=Dev
+      - ASPNETCORE_ENVIRONMENT=Development
